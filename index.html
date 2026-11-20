@@ -72,13 +72,11 @@ function changeKey(){
 if(!API_KEY){
   setTimeout(askForKey, 500);
 }
-
 let mode = 'chat';
 let speakOn = true;
 let memory = [];
 try{ memory = JSON.parse(localStorage.getItem('swift_memory') || '[]'); }catch(e){ memory=[]; }
 let currentImageBase64 = null;
-
 function setMode(m){
   mode = m;
   document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));
@@ -143,13 +141,11 @@ async function sendMessage(){
   if(!text && !currentImageBase64) return;
   addMsg('user', text || 'Photo');
   input.value = '';
-
   if(!API_KEY || API_KEY.length < 20){
     addMsg('ai','No API key found. Tap Change Key and paste your Gemini key.');
     askForKey();
     return;
   }
-
   if(mode === 'image'){
     const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(text) + '?width=512&height=512&seed=' + Date.now() + '&nologo=true';
     const chat = document.getElementById('chat');
@@ -159,17 +155,14 @@ async function sendMessage(){
     chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
     return;
   }
-
   if(mode === 'music'){
     addMsg('ai', 'Creating music for: "' + text + '"... Playing a Swift AI beat now');
     playBeat();
     return;
   }
-
   let prompt = text;
   if(mode==='code') prompt = 'You are Swift AI, an expert coder. Write clean, working code with explanation. Request: ' + text;
   if(memory.length>0) prompt = 'Previous memory: ' + memory.slice(-4).join(' | ') + '\nUser: ' + prompt;
-
   try{
     let parts = [{text: prompt}];
     if(currentImageBase64){
@@ -177,7 +170,7 @@ async function sendMessage(){
       currentImageBase64 = null;
       document.getElementById('preview').style.display='none';
     }
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + API_KEY,{
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' + API_KEY,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({contents:[{parts: parts}]})
