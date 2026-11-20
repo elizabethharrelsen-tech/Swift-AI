@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swift AI</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{background:#050510;color:#fff;height:100vh;display:flex;flex-direction:column}
+header{padding:14px;text-align:center;border-bottom:1px solid #222}
+header h1{font-size:22px;letter-spacing:3px}
+header h1 span{color:#00d4ff}
+header p{font-size:11px;color:#888}
+#orbWrap{text-align:center;padding:12px}
+#orb{width:110px;height:110px;margin:0 auto;border-radius:50%;background:radial-gradient(circle at 30% 30%,#00d4ff,#7b2ff7,#ff2fd6);box-shadow:0 0 40px #7b2ff7;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+#status{font-size:12px;margin-top:8px;color:#00ff9d}
+#chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:10px 12px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.user{background:#1e3a8a;align-self:flex-end}
+.ai{background:#1a1a2e;align-self:flex-start;border:1px solid #333}
+.msg img{max-width:100%;border-radius:10px;margin-top:8px}
+#controls{padding:10px;background:#0a0a1a;border-top:1px solid #222}
+#tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+button{border:none;padding:9px 12px;border-radius:20px;font-weight:600;cursor:pointer}
+.tool{background:#222;color:#fff;font-size:12px}
+.tool.active{background:#00d4ff;color:#000}
+#inputRow{display:flex;gap:8px}
+input{flex:1;padding:12px;border-radius:20px;border:1px solid #333;background:#111;color:#fff;outline:none}
+#sendBtn{background:#00d4ff;color:#000}
+#preview{max-width:80px;border-radius:8px;display:none;margin-bottom:6px}
+</style>
+</head>
+<body>
+<header><h1>SWIFT <span>AI</span></h1><p>Your Intelligent Assistant • by Boniface</p></header>
+<div id="orbWrap"><div id="orb"></div><div id="status">● ONLINE • Memory: ON • Voice: Ready</div></div>
+<div id="chat"><div class="msg ai">Hello, I'm Swift AI. I can chat, listen, speak, see photos, generate images, write code, and create music. Try: "Write a song about Lagos" or upload a photo and ask me about it.</div></div>
+<div id="controls">
+<img id="preview">
+<div id="tools">
+<button class="tool" onclick="startListen()">🎤 Listen</button>
+<button class="tool" id="speakBtn" onclick="toggleSpeak()">🔊 Speak: ON</button>
+<button class="tool" onclick="document.getElementById('fileInput').click()">🖼️ Photo</button>
+<button class="tool" onclick="setMode('image')">🎨 Image Gen</button>
+<button class="tool" onclick="setMode('music')">🎵 Music</button>
+<button class="tool" onclick="setMode('code')">💻 Code / Canvas</button>
+<button class="tool active" onclick="setMode('chat')">💬 Chat</button>
+<button class="tool" onclick="changeKey()">🔑 Change Key</button>
+<button class="tool" onclick="clearMemory()">🗑️ Clear Memory</button>
+</div>
+<div id="inputRow">
+<input id="userInput" placeholder="Ask Swift AI anything..." onkeypress="if(event.key==='Enter') sendMessage()">
+<button id="sendBtn" onclick="sendMessage()">Send</button>
+</div>
+<input type="file" id="fileInput" accept="image/*" hidden onchange="handleImage(event)">
+</div>
+
+<script>
+let API_KEY = localStorage.getItem('swift_key') || "";
+function askForKey(){
+  const k = prompt("Enter your Gemini API Key for Swift AI.\nIt is saved ONLY on your phone, not on GitHub:");
+  if(k && k.trim().length > 10){
+    API_KEY = k.trim();
+    localStorage.setItem('swift_key', API_KEY);
+    alert("Key saved! Now you can chat.");
+  }
+}
+function changeKey(){
+  localStorage.removeItem('swift_key');
+  askForKey();
+}
+if(!API_KEY){
+  setTimeout(askForKey, 500);
+}
+
+let mode = 'chat';
+let speakOn = true;
+let memory = [];
+try{ memory = JSON.parse(localStorage.getItem('swift_memory') || '[]'); }catch(e){ memory=[]; }
+let currentImageBase64 = null;
+
+function setMode(m){
+  mode = m;
+  document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));
+  addMsg('ai', 'Mode changed to: ' + m.toUpperCase() + '. Now type your prompt.');
+}
+function addMsg(role, text){
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if(role==='ai') safeSpeak(text.slice(0,300));
+  return div;
+}
+function safeSpeak(text){
+  try{
+    if(!speakOn) return;
+    if(typeof window.speechSynthesis === 'undefined' || !window.speechSynthesis){ return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-NG';
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function toggleSpeak(){
+  speakOn = !speakOn;
+  document.getElementById('speakBtn').textContent = speakOn ? '🔊 Speak: ON' : '🔇 Speak: OFF';
+  addMsg('ai', speakOn ? 'Voice ON' : 'Voice OFF');
+}
+function startListen(){
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!Rec){ addMsg('ai','Voice not supported here. Please open this file in Chrome.'); return; }
+  const rec = new Rec();
+  rec.lang = 'en-NG';
+  rec.onresult = e => {
+    document.getElementById('userInput').value = e.results[0][0].transcript;
+    sendMessage();
+  };
+  rec.onerror = e => addMsg('ai','Mic error: '+e.error);
+  rec.start();
+  addMsg('ai','Listening... speak now');
+}
+function handleImage(e){
+  const file = e.target.files[0];
+  const reader = new FileReader();
+  reader.onload = () => {
+    currentImageBase64 = reader.result.split(',')[1];
+    const p = document.getElementById('preview');
+    p.src = reader.result; p.style.display='block';
+    addMsg('ai','Photo uploaded. Now ask me: "What is in this photo?"');
+  };
+  reader.readAsDataURL(file);
+}
+function clearMemory(){
+  memory = []; try{ localStorage.removeItem('swift_memory'); }catch(e){}
+  addMsg('ai','Memory cleared.');
+}
+async function sendMessage(){
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if(!text && !currentImageBase64) return;
+  addMsg('user', text || 'Photo');
+  input.value = '';
+
+  if(!API_KEY || API_KEY.length < 20){
+    addMsg('ai','No API key found. Tap Change Key and paste your Gemini key.');
+    askForKey();
+    return;
+  }
+
+  if(mode === 'image'){
+    const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(text) + '?width=512&height=512&seed=' + Date.now() + '&nologo=true';
+    const chat = document.getElementById('chat');
+    const div = document.createElement('div');
+    div.className = 'msg ai';
+    div.innerHTML = 'Here is your image for: <b>' + text + '</b><br><img src="' + url + '">';
+    chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
+    return;
+  }
+
+  if(mode === 'music'){
+    addMsg('ai', 'Creating music for: "' + text + '"... Playing a Swift AI beat now');
+    playBeat();
+    return;
+  }
+
+  let prompt = text;
+  if(mode==='code') prompt = 'You are Swift AI, an expert coder. Write clean, working code with explanation. Request: ' + text;
+  if(memory.length>0) prompt = 'Previous memory: ' + memory.slice(-4).join(' | ') + '\nUser: ' + prompt;
+
+  try{
+    let parts = [{text: prompt}];
+    if(currentImageBase64){
+      parts.push({inline_data:{mime_type:"image/jpeg", data: currentImageBase64}});
+      currentImageBase64 = null;
+      document.getElementById('preview').style.display='none';
+    }
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + API_KEY,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({contents:[{parts: parts}]})
+    });
+    const data = await res.json();
+    if(data.error){
+      addMsg('ai','Gemini Error: ' + data.error.message + ' (Code ' + data.error.code + ')');
+      if(data.error.code === 400) addMsg('ai','Your key may be wrong. Tap Change Key and paste it again carefully.');
+      return;
+    }
+    const reply = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0].text ? data.candidates[0].content.parts[0].text : 'No reply from Gemini.';
+    addMsg('ai', reply);
+    memory.push('User: ' + text + ' | AI: ' + reply.slice(0,200));
+    try{ localStorage.setItem('swift_memory', JSON.stringify(memory.slice(-20))); }catch(e){}
+  }catch(err){
+    addMsg('ai','Network Error: ' + err.message);
+  }
+}
+function playBeat(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    let i=0;
+    const timer = setInterval(()=>{
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = i%4===0 ? 150 : 440;
+      g.gain.value = 0.15; o.start(); o.stop(ctx.currentTime+0.12);
+      i++; if(i>16){ clearInterval(timer); }
+    },200);
+  }catch(e){ addMsg('ai','Audio not supported in this preview. Open in Chrome.'); }
+}
+</script>
+</body>
+</html>
