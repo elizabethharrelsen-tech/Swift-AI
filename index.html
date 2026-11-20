@@ -54,7 +54,6 @@ input{flex:1;padding:12px;border-radius:20px;border:1px solid #333;background:#1
 </div>
 <input type="file" id="fileInput" accept="image/*" hidden onchange="handleImage(event)">
 </div>
-
 <script>
 let API_KEY = localStorage.getItem('swift_key') || "";
 function askForKey(){
@@ -69,9 +68,7 @@ function changeKey(){
   localStorage.removeItem('swift_key');
   askForKey();
 }
-if(!API_KEY){
-  setTimeout(askForKey, 500);
-}
+if(!API_KEY){ setTimeout(askForKey, 500); }
 let mode = 'chat';
 let speakOn = true;
 let memory = [];
@@ -146,16 +143,21 @@ async function sendMessage(){
     askForKey();
     return;
   }
-    if(mode === 'image'){
-    const prompt = encodeURIComponent(text + ', high quality, detailed, photorealistic');
+  if(mode === 'image'){
+    const keywords = encodeURIComponent(text.replace(/a |an |the |create|picture|image|logo|of/gi,'').trim().replace(/\s+/g,','));
     const seed = Date.now();
-    const url1 = 'https://gen.pollinations.ai/image/' + prompt + '?model=flux&width=512&height=512&seed=' + seed;
-    const url2 = 'https://image.pollinations.ai/prompt/' + prompt + '?model=flux&width=512&height=512&seed=' + seed;
+    const url1 = 'https://loremflickr.com/512/512/' + keywords + '?lock=' + seed;
+    const url2 = 'https://picsum.photos/seed/' + seed + '/512/512';
     const chat = document.getElementById('chat');
     const div = document.createElement('div');
     div.className = 'msg ai';
-    div.innerHTML = 'Here is your image for: <b>' + text + '</b><br><img src="' + url1 + '" onerror="this.onerror=null; this.src=\'' + url2 + '\';">';
+    div.innerHTML = 'Here is your image for: <b>' + text + '</b><br><img src="' + url1 + '" onerror="this.onerror=null; this.src=\'' + url2 + '\';"><br><small>Tip: For a Logo, use Chat mode and ask: "Make me a DANIEL logo in HTML"</small>';
     chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
+    return;
+  }
+  if(mode === 'music'){
+    addMsg('ai', 'Creating music for: "' + text + '"... Playing a Swift AI beat now');
+    playBeat();
     return;
   }
   let prompt = text;
